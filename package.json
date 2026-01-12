@@ -3,15 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev:clean": "lsof -ti tcp:5173 | xargs kill -9 || true",
-    "dev": "vite --port 5173 --strictPort",
-    "dev:free": "npm run dev:clean && npm run dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:run": "vitest run"
-  },
+"scripts": {
+  "dev:clean": "lsof -ti tcp:5173 | xargs kill -9 || true && vite --port 5173 --strictPort",
+  "dev": "vite --port 5173 --strictPort",
+  "build": "vite build",
+  "preview": "vite preview",
+  "test": "vitest",
+  "test:run": "vitest run",
+  "predeploy": "npm run build",
+  "deploy": "gh-pages -d dist"
+},
+
   "dependencies": {
     "lucide-react": "^0.468.0",
     "react": "^18.2.0",
@@ -27,6 +29,7 @@
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
+    "gh-pages": "^6.3.0",
     "globals": "^15.14.0",
     "jsdom": "^27.4.0",
     "postcss": "^8.5.6",
