@@ -34,7 +34,9 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
 
   const actualizarLinea = (uid, campo, valor) => {
     setLineas(
-      lineas.map((l) => (l.uid === uid ? { ...l, [campo]: parseFloat(valor) || 0 } : l))
+      lineas.map((l) =>
+        l.uid === uid ? { ...l, [campo]: parseFloat(valor) || 0 } : l
+      )
     );
   };
 
@@ -52,22 +54,31 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
   );
 
   // Costes Proceso
-  const costeAmasado = (Number(tiempos.amasado || 0) / 60) * (Number(config.costeHoraPersonal) || 0);
+  const costeAmasado =
+    (Number(tiempos.amasado || 0) / 60) * (Number(config.costeHoraPersonal) || 0);
 
   const unidadesSafe = Number(unidades) > 0 ? Number(unidades) : 1;
-  const velocidadSafe = Number(tiempos.velocidadFormado) > 0 ? Number(tiempos.velocidadFormado) : 1;
+  const velocidadSafe =
+    Number(tiempos.velocidadFormado) > 0 ? Number(tiempos.velocidadFormado) : 1;
 
   const horasFormado = unidadesSafe / velocidadSafe;
   const costeFormado = horasFormado * (Number(config.costeHoraPersonal) || 0);
 
-  const costeCoccion = (Number(tiempos.coccion || 0) / 60) * (Number(config.costeHoraHorno) || 0);
+  const costeCoccion =
+    (Number(tiempos.coccion || 0) / 60) * (Number(config.costeHoraHorno) || 0);
 
   // Gastos Generales (Imputación por tiempo total de ocupación de obrador por lote)
   const tiempoTotalCiclo =
-    Number(tiempos.amasado || 0) + horasFormado * 60 + Number(tiempos.fermentacion || 0) + Number(tiempos.coccion || 0);
+    Number(tiempos.amasado || 0) +
+    horasFormado * 60 +
+    Number(tiempos.fermentacion || 0) +
+    Number(tiempos.coccion || 0);
 
-  const horasMensualesSafe = Number(config.horasTrabajoMensuales) > 0 ? Number(config.horasTrabajoMensuales) : 1;
-  const gastoGeneralMinuto = (Number(config.gastosFijosMensuales) || 0) / (horasMensualesSafe * 60);
+  const horasMensualesSafe =
+    Number(config.horasTrabajoMensuales) > 0 ? Number(config.horasTrabajoMensuales) : 1;
+
+  const gastoGeneralMinuto =
+    (Number(config.gastosFijosMensuales) || 0) / (horasMensualesSafe * 60);
 
   const costeGG = tiempoTotalCiclo * gastoGeneralMinuto;
 
@@ -92,7 +103,9 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
 
   // Actualizar PVP Manual sugerido inicial
   useEffect(() => {
-    if ((Number(pvpManual) || 0) === 0 && pvpSugerido > 0) setPvpManual(parseFloat(pvpSugerido.toFixed(2)));
+    if ((Number(pvpManual) || 0) === 0 && pvpSugerido > 0) {
+      setPvpManual(parseFloat(pvpSugerido.toFixed(2)));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [costeUnitario]);
 
@@ -149,11 +162,15 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
                   className="p-3 hover:bg-blue-50 cursor-pointer border-b flex justify-between"
                 >
                   <span>{ing.nombre}</span>
-                  <span className="font-bold">{Number(ing.precio).toFixed(2)} €/{ing.unidad || "kg"}</span>
+                  <span className="font-bold">
+                    {Number(ing.precio).toFixed(2)} €/{ing.unidad || "kg"}
+                  </span>
                 </div>
               ))}
               {resultadosBusqueda.length === 0 && (
-                <div className="p-3 text-gray-500">No encontrado. Ve a "Inventario" para crearlo.</div>
+                <div className="p-3 text-gray-500">
+                  No encontrado. Ve a "Inventario" para crearlo.
+                </div>
               )}
             </div>
           )}
@@ -185,10 +202,17 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
                   </td>
                   <td className="p-3 text-center">{linea.esHarina ? "🌾" : "-"}</td>
                   <td className="p-3 text-right">
-                    {(((Number(linea.cantidad) || 0) / 1000) * (Number(linea.precio) || 0)).toFixed(3)} €
+                    {(
+                      ((Number(linea.cantidad) || 0) / 1000) *
+                      (Number(linea.precio) || 0)
+                    ).toFixed(3)}{" "}
+                    €
                   </td>
                   <td className="p-3 text-center">
-                    <button onClick={() => eliminarLinea(linea.uid)} className="text-red-400 hover:text-red-600">
+                    <button
+                      onClick={() => eliminarLinea(linea.uid)}
+                      className="text-red-400 hover:text-red-600"
+                    >
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -287,7 +311,9 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
           {/* Derecha: Precios */}
           <div className="bg-gray-800 p-4 rounded-lg">
             <div className="mb-4">
-              <label className="text-xs text-gray-400 uppercase">Margen Deseado ({margenSafe}%)</label>
+              <label className="text-xs text-gray-400 uppercase">
+                Margen Deseado ({margenSafe}%)
+              </label>
               <input
                 type="range"
                 min="0"
@@ -305,7 +331,9 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
             </div>
 
             <div className="border-t border-gray-600 pt-4">
-              <label className="block text-sm font-bold text-green-400 mb-1">MI PRECIO FINAL (€ con IVA)</label>
+              <label className="block text-sm font-bold text-green-400 mb-1">
+                MI PRECIO FINAL (€ con IVA)
+              </label>
               <input
                 type="number"
                 step="0.05"
@@ -325,7 +353,7 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
               <div className="text-xs">Margen Real: {margenReal.toFixed(1)}%</div>
             </div>
 
-            {/* ✅ PRODUCIR LOTE: integración con Stock */}
+            {/* ✅ PRODUCIR LOTE: integración con Stock (SEGURA) */}
             <div className="mt-4">
               <button
                 className="w-full bg-blue-600 hover:bg-blue-700 transition text-white font-black py-3 rounded-lg"
@@ -337,9 +365,12 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
                       lineas,
                     });
 
+                    const consumedCount = res?.consumed?.length ?? 0;
+                    const skippedCount = res?.skipped?.length ?? 0;
+
                     setProduccionMsg({
                       type: "ok",
-                      text: `✅ Stock actualizado. Consumidos: ${res.consumed.length}. Omitidos: ${res.skipped.length}.`,
+                      text: `✅ Stock actualizado. Consumidos: ${consumedCount}. Omitidos: ${skippedCount}.`,
                       detail: res,
                     });
                   } catch (e) {
@@ -357,7 +388,10 @@ export const Calculadora = ({ config, ingredientesDisponibles }) => {
                 <div
                   className="mt-3 p-3 rounded-lg text-sm"
                   style={{
-                    background: produccionMsg.type === "ok" ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)",
+                    background:
+                      produccionMsg.type === "ok"
+                        ? "rgba(34,197,94,.12)"
+                        : "rgba(239,68,68,.12)",
                     border: "1px solid rgba(255,255,255,.08)",
                   }}
                 >

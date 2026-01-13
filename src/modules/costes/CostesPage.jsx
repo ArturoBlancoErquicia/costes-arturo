@@ -4,6 +4,9 @@ import { Configuracion } from "../../components/Configuracion";
 import { Calculadora } from "../../components/Calculadora";
 import { ChefHat, Package, Settings } from "lucide-react";
 
+import { produceLoteFromCostes } from "./produceFromCostes";
+import { emptyDB, exportStockJSON, importStockJSON } from "../stock/stockStore";
+
 const Inventario = ({ ingredientes, setIngredientes }) => {
   const [nuevo, setNuevo] = useState({ nombre: "", precio: 0, esHarina: false });
 
@@ -19,7 +22,10 @@ const Inventario = ({ ingredientes, setIngredientes }) => {
         Gestión de Materias Primas
       </h2>
 
-      <div className="flex flex-col md:flex-row gap-2 mb-6 p-4 rounded-lg" style={{ background: "#f8fafc", border: "1px solid var(--border)" }}>
+      <div
+        className="flex flex-col md:flex-row gap-2 mb-6 p-4 rounded-lg"
+        style={{ background: "#f8fafc", border: "1px solid var(--border)" }}
+      >
         <input
           placeholder="Nombre de ingrediente"
           className="ab-input flex-grow"
@@ -92,6 +98,27 @@ export default function CostesPage() {
   useEffect(() => localStorage.setItem("ab_config", JSON.stringify(config)), [config]);
   useEffect(() => localStorage.setItem("ab_ingredientes", JSON.stringify(ingredientes)), [ingredientes]);
 
+  // ✅ Esta función solo sirve si Calculadora te devuelve lineas/unidades al pulsar.
+  const onProducir = ({ lineas, unidades }) => {
+    const stockDump = localStorage.getItem("ab_stock_db");
+    const stockDb = stockDump ? importStockJSON(stockDump) : emptyDB();
+
+    const res = produceLoteFromCostes({
+      db: stockDb,
+      lineas,
+      unidades: Number(unidades) || 0,
+      at: Date.now(),
+    });
+
+    localStorage.setItem("ab_stock_db", exportStockJSON(res.db));
+
+    if (res.noEncontrados?.length) {
+      alert(`Producción OK. No encontrados en stock: ${res.noEncontrados.join(", ")}`);
+    } else {
+      alert("Producción OK. Stock descontado.");
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="ab-card">
@@ -109,7 +136,15 @@ export default function CostesPage() {
         </div>
       </div>
 
-      {activeTab === "calculadora" && <Calculadora config={config} ingredientesDisponibles={ingredientes} />}
+      {activeTab === "calculadora" && (
+        <Calculadora
+          config={config}
+          ingredientesDisponibles={ingredientes}
+          // 👇 si decides usar esta opción, Calculadora debe llamar onProducir({lineas, unidades})
+          onProducir={onProducir}
+        />
+      )}
+
       {activeTab === "inventario" && <Inventario ingredientes={ingredientes} setIngredientes={setIngredientes} />}
       {activeTab === "config" && <Configuracion config={config} setConfig={setConfig} />}
     </div>

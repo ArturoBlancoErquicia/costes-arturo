@@ -2,164 +2,177 @@
 
 const KEY = "ab_stock_v1";
 
-export const UNITS = ["kg", "g", "l", "ud"];
-
-// Lo piden tus módulos (produceFromCostes) y es buena práctica
-export const MOV_TYPES = Object.freeze({
-  IN: "IN",
-  OUT: "OUT",
-  ADJUST: "ADJUST",
-});
-
-let _uidCounter = 0;
-export function uid(prefix = "id") {
-  _uidCounter += 1;
-  return `${prefix}_${Date.now()}_${_uidCounter}_${Math.random().toString(16).slice(2)}`;
+export function uid() {
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-export function emptyDB() {
-  return { items: [], movements: [] };
-}
-
-function safeParse(raw, fallback) {
-  try {
-    const v = JSON.parse(raw);
-    return v ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeDB(db) {
-  const base = db && typeof db === "object" ? db : emptyDB();
+function defaultState() {
   return {
-    items: Array.isArray(base.items) ? base.items : [],
-    movements: Array.isArray(base.movements) ? base.movements : [],
+    items: [], // { id, nombre, unidad: "kg", qty, updatedAt }
+    movements: [], // { id, ts, nombre, delta, unidad, reason }
   };
 }
 
-// ---------- Persistencia (UI) ----------
-export function loadDB() {
+function read() {
   try {
     const raw = localStorage.getItem(KEY);
-    return normalizeDB(safeParse(raw, emptyDB()));
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      movements: Array.isArray(parsed.movements) ? parsed.movements : [],
+    };
   } catch {
-    return emptyDB();
+    return defaultState();
   }
 }
 
-export function saveDB(db) {
-  try {
-    localStorage.setItem(KEY, exportDB(db));
-  } catch {
-    // ignore
-  }
-  return normalizeDB(db);
+function write(state) {
+  localStorage.setItem(KEY, JSON.stringify(state));
+  return state;
 }
 
-export function getDB() {
-  return loadDB();
+export function getStockState() {
+  return read();
 }
 
-export function setDB(db) {
-  return saveDB(db);
+export function setStockState(state) {
+  return write(state);
 }
 
-// ---------- CRUD puro (tests y lógica) ----------
-export function upsertItem(db, item) {
-  const d = normalizeDB(db);
-  const it = { ...item };
-  if (!it.id) it.id = uid("it");
-
-  const idx = d.items.findIndex((x) => x.id === it.id);
-  const items =
-    idx === -1
-      ? [...d.items, it]
-      : d.items.map((x, i) => (i === idx ? { ...x, ...it } : x));
-
-  return { ...d, items };
+export function emptyDB() {
+  write(defaultState());
+  return true;
 }
 
-// UI antigua: addItem (devuelve {db, item})
-export function addItem(db, { nombre, unidad = "ud", stockInicial = 0, stockMin = 0 }) {
-  const item = { id: uid("it"), nombre, unidad, stockMin };
-  let next = upsertItem(db, item);
-
-  const si = Number(stockInicial) || 0;
-  if (si !== 0) {
-    next = addMovement(next, {
-      id: uid("mv"),
-      itemId: item.id,
-      type: MOV_TYPES.ADJUST,
-      qty: si,
-      at: Date.now(),
-      note: "Stock inicial",
-    });
-  }
-
-  return { db: next, item };
+export function exportStockJSON() {
+  return read();
 }
 
-export function deleteItem(db, itemId) {
-  const d = normalizeDB(db);
-  const items = d.items.filter((x) => x.id !== itemId);
-  const movements = d.movements.filter((m) => m.itemId !== itemId);
-  return { ...d, items, movements };
+export function importStockJSON(payload) {
+  const state = {
+    items: Array.isArray(payload?.items) ? payload.items : [],
+    movements: Array.isArray(payload?.movements) ? payload.movements : [],
+  };
+  write(state);
+  return state;
 }
 
-export function listItems(db) {
-  return normalizeDB(db).items;
-}
-
-export function listMovements(db) {
-  return normalizeDB(db).movements;
-}
-
-// addMovement tiene que ser PURA (tests)
-export function addMovement(db, mv) {
-  const d = normalizeDB(db);
-  const m = { ...mv };
-  if (!m.id) m.id = uid("mv");
-  if (!m.at) m.at = Date.now();
-  return { ...d, movements: [...d.movements, m] };
-}
-
-// IMPORTANTE: tests esperan Map con .get()
-export function computeStockMap(db) {
-  const d = normalizeDB(db);
-
+export function stockMap() {
+  const s = read();
   const map = new Map();
-  for (const it of d.items) map.set(it.id, 0);
-
-  // orden por tiempo
-  const moves = [...d.movements].sort((a, b) => (a.at || 0) - (b.at || 0));
-
-  for (const mv of moves) {
-    const cur = map.get(mv.itemId) ?? 0;
-    const qty = Number(mv.qty) || 0;
-
-    if (mv.type === MOV_TYPES.IN) map.set(mv.itemId, cur + qty);
-    else if (mv.type === MOV_TYPES.OUT) map.set(mv.itemId, cur - qty);
-    else if (mv.type === MOV_TYPES.ADJUST) map.set(mv.itemId, qty);
+  for (const it of s.items) {
+    if (!it?.nombre) continue;
+    map.set(String(it.nombre).trim().toLowerCase(), it);
   }
-
   return map;
 }
 
-// Tests piden exportDB/importDB
-export function exportDB(db) {
-  return JSON.stringify(normalizeDB(db));
+export function upsertItem({ nombre, unidad = "kg", qty = 0 }) {
+  const s = read();
+  const key = String(nombre || "").trim();
+  if (!key) throw new Error("Nombre obligatorio");
+
+  const k = key.toLowerCase();
+  const idx = s.items.findIndex((x) => String(x.nombre).trim().toLowerCase() === k);
+
+  const now = Date.now();
+  if (idx >= 0) {
+    const updated = {
+      ...s.items[idx],
+      nombre: key,
+      unidad,
+      qty: Number(qty) || 0,
+      updatedAt: now,
+    };
+    s.items[idx] = updated;
+    write(s);
+    return updated;
+  }
+
+  const created = { id: uid(), nombre: key, unidad, qty: Number(qty) || 0, updatedAt: now };
+  s.items.push(created);
+  write(s);
+  return created;
 }
 
-export function importDB(raw) {
-  return normalizeDB(safeParse(raw, emptyDB()));
+export function addMovement({ nombre, delta, unidad = "kg", reason = "" }) {
+  const s = read();
+  const key = String(nombre || "").trim();
+  if (!key) throw new Error("Nombre obligatorio");
+
+  const k = key.toLowerCase();
+  const idx = s.items.findIndex((x) => String(x.nombre).trim().toLowerCase() === k);
+  if (idx < 0) {
+    // si no existe, lo creamos a 0 y aplicamos delta
+    s.items.push({ id: uid(), nombre: key, unidad, qty: 0, updatedAt: Date.now() });
+  }
+
+  const idx2 = s.items.findIndex((x) => String(x.nombre).trim().toLowerCase() === k);
+  const cur = Number(s.items[idx2].qty) || 0;
+  const d = Number(delta) || 0;
+  const next = cur + d;
+
+  s.items[idx2] = {
+    ...s.items[idx2],
+    unidad,
+    qty: next,
+    updatedAt: Date.now(),
+  };
+
+  s.movements.unshift({
+    id: uid(),
+    ts: Date.now(),
+    nombre: key,
+    delta: d,
+    unidad,
+    reason,
+  });
+
+  write(s);
+  return s.items[idx2];
 }
 
-// Compat UI: nombres anteriores (por si los usas en algún sitio)
-export function exportStockJSON(db) {
-  return JSON.stringify(normalizeDB(db), null, 2);
-}
+// Consume ingredientes por nombre (devuelve consumidos/omitidos)
+export function consumeByName(list, { reason = "consumo" } = {}) {
+  const s = read();
+  const map = new Map();
+  s.items.forEach((it, i) => map.set(String(it.nombre).trim().toLowerCase(), i));
 
-export function importStockJSON(raw) {
-  return importDB(raw);
+  const consumed = [];
+  const skipped = [];
+
+  for (const row of list || []) {
+    const nombre = String(row?.nombre || "").trim();
+    const unidad = row?.unidad || "kg";
+    const qty = Number(row?.qty) || 0;
+
+    if (!nombre || qty <= 0) continue;
+
+    const idx = map.get(nombre.toLowerCase());
+    if (idx == null) {
+      skipped.push({ nombre, motivo: "No existe en stock" });
+      continue;
+    }
+
+    const cur = Number(s.items[idx].qty) || 0;
+    if (cur < qty) {
+      skipped.push({ nombre, motivo: `Stock insuficiente (${cur} < ${qty})` });
+      continue;
+    }
+
+    s.items[idx] = { ...s.items[idx], qty: cur - qty, updatedAt: Date.now() };
+    s.movements.unshift({
+      id: uid(),
+      ts: Date.now(),
+      nombre,
+      delta: -qty,
+      unidad,
+      reason,
+    });
+    consumed.push({ nombre, qty, unidad });
+  }
+
+  write(s);
+  return { consumed, skipped };
 }

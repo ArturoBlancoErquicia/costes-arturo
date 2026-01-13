@@ -1,60 +1,26 @@
 // src/modules/costes/produceFromCostes.js
+import { consumeByName } from "../stock/stockStore";
 
-import { addMovement, computeStockMap, uid, MOV_TYPES } from "../stock/stockStore";
+// lineas: [{ nombre, cantidad (gramos), ... }]
+export function produceLoteFromCostes({ nombreReceta, unidades, lineas }) {
+  const safeLineas = Array.isArray(lineas) ? lineas : [];
 
-const norm = (s) => String(s ?? "").trim().toLowerCase();
+  // Convertimos gramos -> kg (asumimos stock en kg)
+  const consumos = safeLineas
+    .filter((l) => l && l.nombre && (Number(l.cantidad) || 0) > 0)
+    .map((l) => ({
+      nombre: String(l.nombre).trim(),
+      unidad: "kg",
+      qty: (Number(l.cantidad) || 0) / 1000,
+    }));
 
-/**
- * Convierte un escandallo (líneas de costes) en movimientos OUT de stock.
- * - Solo descuenta si existe un item de stock con nombre equivalente (case-insensitive).
- * - Si el item está en "kg", convierte gramos -> kg.
- *
- * @param {Object} params
- * @param {Object} params.db    Stock DB {items, movements}
- * @param {Array}  params.lineas [{ nombre, cantidad }]
- * @param {number} params.unidades
- * @param {number} params.at
- */
-export function produceLoteFromCostes({ db, lineas, unidades = 0, at = Date.now() }) {
-  const items = (db?.items || []).slice();
-  const movimientosCreados = [];
-  const noEncontrados = [];
+  const reason = `Producción: ${nombreReceta || "Receta"} (${Number(unidades) || 0} uds)`;
 
-  for (const l of lineas || []) {
-    const nombreLinea = norm(l?.nombre);
-    if (!nombreLinea) continue;
+  const res = consumeByName(consumos, { reason });
 
-    // match exacto por nombre (si luego quieres, añadimos mapeo/sinónimos)
-    const item = items.find((it) => norm(it.nombre) === nombreLinea);
-
-    if (!item) {
-      noEncontrados.push(l?.nombre);
-      continue;
-    }
-
-    const qtyGr = Number(l?.cantidad) || 0;
-    if (qtyGr <= 0) continue;
-
-    let qty = qtyGr;
-    if (norm(item.unidad) === "kg") qty = qtyGr / 1000;
-
-    movimientosCreados.push({
-      id: uid("mv"),
-      itemId: item.id,
-      type: MOV_TYPES.OUT,
-      qty,
-      at,
-      note: `Producción desde Costes (${unidades} uds)`,
-    });
-  }
-
-  let newDb = db;
-  for (const mv of movimientosCreados) newDb = addMovement(newDb, mv);
-
+  // ✅ Garantía de forma
   return {
-    db: newDb,
-    stockMap: computeStockMap(newDb),
-    movimientosCreados,
-    noEncontrados,
+    consumed: Array.isArray(res?.consumed) ? res.consumed : [],
+    skipped: Array.isArray(res?.skipped) ? res.skipped : [],
   };
 }
