@@ -1,13 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>costes-arturo</title>
+
+    <!-- Si entras sin hash, fuerza #/costes (útil para GH Pages + HashRouter) -->
+    <script>
+      (function () {
+        const hasHash = window.location.hash && window.location.hash.length > 1;
+        if (!hasHash) window.location.replace(window.location.pathname + "#/costes");
+      })();
+    </script>
   </head>
+
   <body>
     <div id="root"></div>
+
+    <!-- ✅ IMPORTANTE: NO pongas /costes-arturo aquí -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
